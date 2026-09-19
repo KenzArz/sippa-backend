@@ -55,15 +55,23 @@ class SqlImportSeeder extends Seeder
                 continue;
             }
             
-            // Only keep INSERT statements for SIPPA tables
+            // Only keep INSERT statements for SIPPA tables (with or without backticks)
             if (str_starts_with($line, 'INSERT INTO commodities') ||
+                str_starts_with($line, 'INSERT INTO `commodities`') ||
                 str_starts_with($line, 'INSERT INTO clusters') ||
+                str_starts_with($line, 'INSERT INTO `clusters`') ||
                 str_starts_with($line, 'INSERT INTO provinces') ||
+                str_starts_with($line, 'INSERT INTO `provinces`') ||
                 str_starts_with($line, 'INSERT INTO kmeans_evaluations') ||
+                str_starts_with($line, 'INSERT INTO `kmeans_evaluations`') ||
                 str_starts_with($line, 'INSERT INTO pca_variances') ||
+                str_starts_with($line, 'INSERT INTO `pca_variances`') ||
                 str_starts_with($line, 'INSERT INTO cluster_commodity_profiles') ||
+                str_starts_with($line, 'INSERT INTO `cluster_commodity_profiles`') ||
                 str_starts_with($line, 'INSERT INTO province_commodity_productions') ||
-                str_starts_with($line, 'INSERT INTO province_padi_monthly_productions')
+                str_starts_with($line, 'INSERT INTO `province_commodity_productions`') ||
+                str_starts_with($line, 'INSERT INTO province_padi_monthly_productions') ||
+                str_starts_with($line, 'INSERT INTO `province_padi_monthly_productions`')
             ) {
                 $cleanedStatements[] = $line;
             }
