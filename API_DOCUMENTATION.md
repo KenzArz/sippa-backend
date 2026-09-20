@@ -4,10 +4,73 @@
 ```
 Development: http://localhost:8000/api
 Production: https://your-domain.com/api
+Azure: http://70.153.80.149/api
 ```
 
+## Health Check & Discovery
+
+### API Root
+**GET** `/api/`
+
+Returns API status, version, and list of all available endpoints.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "SIPPA API is running",
+  "version": "1.0.0",
+  "endpoints": {
+    "clusters": [
+      "GET /api/clusters",
+      "GET /api/clusters/summary",
+      "GET /api/clusters/{id}",
+      "GET /api/clusters/{id}/top-commodities"
+    ],
+    "provinces": [...],
+    "commodities": [...],
+    "model-evaluation": [...]
+  },
+  "documentation": "See API_DOCUMENTATION.md"
+}
+```
+
+**Use Case:** Health check untuk monitoring, discovery endpoint untuk frontend
+
+---
+
+## Error Handling
+
+### 404 - Endpoint Not Found
+
+Any request to undefined endpoint will return:
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Endpoint not found",
+  "error": "The requested API endpoint does not exist",
+  "available_endpoints": {
+    "GET /api/": "API health check and endpoint list",
+    "GET /api/clusters": "List all clusters",
+    "GET /api/provinces": "List all provinces",
+    "GET /api/commodities": "List all commodities",
+    "GET /api/model-evaluation": "Get model evaluation metrics"
+  },
+  "documentation": "See API_DOCUMENTATION.md for complete reference"
+}
+```
+
+**HTTP Status Code:** 404
+
+---
+
 ## Response Format
+
 All endpoints return JSON with the following structure:
+
+**Success Response:**
 ```json
 {
   "success": true,
@@ -15,7 +78,7 @@ All endpoints return JSON with the following structure:
 }
 ```
 
-Error responses:
+**Error Response:**
 ```json
 {
   "success": false,
@@ -258,6 +321,23 @@ Returns top N provinces producing this commodity.
 
 ## Model Evaluation Endpoints
 
+### Important Note: `chosen_k` vs Silhouette Score
+
+The `chosen_k` field returns **K=4** as the chosen number of clusters, which may seem counterintuitive since **K=2 has the highest Silhouette Score (0.3618)**.
+
+**Why K=4 instead of K=2?**
+
+According to the ML team's documentation (`README_ML.txt`):
+- K=2 produces statistically best metrics (Silhouette Score & Davies-Bouldin Index)
+- **However**, K=2 clusters are too general for practical agricultural analysis
+- K=4 was chosen based on:
+  - ✓ Elbow Method analysis
+  - ✓ Better cluster distribution (3-14 provinces per cluster)
+  - ✓ Multi-commodity profile interpretability
+  - ✓ Actionable insights for policy makers
+
+This is a **qualitative decision** by domain experts, not a purely statistical optimization. The API returns `chosen_k: 4` to reflect the actual implementation used throughout the system.
+
 ### 1. Get Complete Model Evaluation
 **GET** `/api/model-evaluation`
 
@@ -269,9 +349,37 @@ Returns complete K-Means and PCA evaluation metrics.
   "success": true,
   "data": {
     "kmeans": {
-      "evaluations": [...],
-      "optimal_k": 4,
-      "optimal_silhouette_score": "0.27307103"
+      "evaluations": [
+        {
+          "k": 2,
+          "inertia": "1084.2341234567",
+          "silhouette_score": "0.36181234",
+          "davies_bouldin_index": "0.89234567",
+          "smallest_cluster": 12,
+          "largest_cluster": 26
+        },
+        {
+          "k": 4,
+          "inertia": "622.8143680775",
+          "silhouette_score": "0.27307103",
+          "davies_bouldin_index": "1.08358781",
+          "smallest_cluster": 3,
+          "largest_cluster": 14
+        }
+        // ... K=3, 5, 6, 7, 8
+      ],
+      "chosen_k": 4,
+      "chosen_k_metrics": {
+        "k": 4,
+        "inertia": "622.8143680775",
+        "silhouette_score": "0.27307103",
+        "davies_bouldin_index": "1.08358781",
+        "smallest_cluster": 3,
+        "largest_cluster": 14
+      },
+      "chosen_k_note": "K=4 dipilih berdasarkan analisis kualitatif (Elbow, distribusi cluster, interpretabilitas), bukan semata Silhouette Score tertinggi",
+      "statistical_best_k": 2,
+      "statistical_best_silhouette": "0.36181234"
     },
     "pca": {
       "variances": [...],
@@ -281,6 +389,14 @@ Returns complete K-Means and PCA evaluation metrics.
   }
 }
 ```
+
+**Response Fields:**
+- `chosen_k`: The K value actually used in production (4)
+- `chosen_k_metrics`: Full metrics for K=4
+- `chosen_k_note`: Explanation in Bahasa Indonesia from ML team
+- `statistical_best_k`: K with highest Silhouette Score (2) - NOT used in final system
+- `statistical_best_silhouette`: Silhouette Score for K=2 (0.3618)
+- `evaluations`: Array of all K-Means evaluations (K=2 to K=8)
 
 ### 2. Get K-Means Evaluation
 **GET** `/api/model-evaluation/kmeans`
